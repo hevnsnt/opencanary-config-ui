@@ -1,0 +1,138 @@
+from flask import Flask, render_template, request, redirect, url_for, flash
+import yaml
+import os
+import json
+
+# Services and their configurable parameters
+SIMPLE_SERVICES = {
+    'git':       {'port': 9418},
+    'ftp':       {'port': 21, 'banner': 'HOME FTP server ready for data'},
+    'http':      {'port': 80, 'banner': 'Apache/2.2.22 (Ubuntu)', 'skin': 'nasLogin'},
+    'httpproxy': {'port': 8080, 'skin': 'squid'},
+    'mysql':     {'port': 3306, 'banner': '5.5.43-0ubuntu0.14.04.1'},
+    'ssh':       {'port': 22, 'version': 'SSH-2.0-OpenSSH_5.1p1 Debian-4'},
+    'redis':     {'port': 6379},
+    'rdp':       {'port': 3389},
+    'sip':       {'port': 5060},
+    'snmp':      {'port': 161},
+    'ntp':       {'port': 123},
+    'tftp':      {'port': 69},
+    'mssql':     {'port': 1433, 'version': '2012'},
+    'vnc':       {'port': 5000}
+}
+
+app = Flask(__name__)
+app.secret_key = 'replace-with-a-secure-random-key'
+
+@app.route('/', methods=['GET', 'POST'])
+def configure():
+    if request.method == 'POST':
+        cfg = {}
+        # Node ID
+        cfg['device.node_id'] = request.form.get('node_id', 'opencanary-1')
+
+        # Simple services
+        for svc, attrs in SIMPLE_SERVICES.items():
+            enabled = bool(request.form.get(f'{svc}_enabled'))
+            cfg[f'{svc}.enabled'] = enabled
+            if enabled:
+                for param, default in attrs.items():
+                    raw = request.form.get(f'{svc}_{param}', None)
+                    if raw:
+                        val = int(raw) if isinstance(default, int) else raw
+                    else:
+                        val = default
+                    cfg[f'{svc}.{param}'] = val
+
+        # Portscan
+        ps_enabled = bool(request.form.get('portscan_enabled'))
+        cfg['portscan.enabled'] = ps_enabled
+        if ps_enabled:
+            cfg['portscan.logfile'] = request.form.get('portscan_logfile', '')
+            cfg['portscan.synrate'] = int(request.form.get('portscan_synrate', 5))
+            cfg['portscan.nmaposrate'] = int(request.form.get('portscan_nmaposrate', 5))
+            cfg['portscan.lorate'] = int(request.form.get('portscan_lorate', 3))
+
+        # SMB
+        smb_enabled = bool(request.form.get('smb_enabled'))
+        cfg['smb.enabled'] = smb_enabled
+        if smb_enabled:
+            cfg['smb.auditfile'] = request.form.get('smb_auditfile', '')
+
+        # TCPBanner
+        tb_enabled = bool(request.form.get('tcpbanner_enabled'))
+        cfg['tcpbanner.enabled'] = tb_enabled
+        if tb_enabled:
+            cfg['tcpbanner.maxnum'] = int(request.form.get('tcpbanner_maxnum', 10))
+
+        tb1_enabled = bool(request.form.get('tcpbanner_1_enabled'))
+        cfg['tcpbanner_1.enabled'] = tb1_enabled
+        if tb1_enabled:
+            raw = request.form.get('tcpbanner_1_json', '{}')
+            try:
+                data = json.loads(raw)
+                for k, v in data.items():
+                    cfg[f'tcpbanner_1.{k}'] = v
+            except json.JSONDecodeError:
+                flash('Invalid JSON for tcpbanner_1', 'danger')
+
+        # Telnet
+        tel_enabled = bool(request.form.get('telnet_enabled'))
+        cfg['telnet.enabled'] = tel_enabled
+        if tel_enabled:
+            cfg['telnet.port'] = int(request.form.get('telnet_port', 23))
+            cfg['telnet.banner'] = request.form.get('telnet_banner', '')
+            creds_raw = request.form.get('telnet_honeycreds', '[]')
+            try:
+                creds = json.loads(creds_raw)
+                cfg['telnet.honeycreds'] = creds
+            except json.JSONDecodeError:
+                flash('Invalid JSON for telnet honeycreds', 'danger')
+
+        # Log handlers
+        handlers = {}
+        if request.form.get('handler_console'):
+            handlers['console'] = {'class': 'logging.StreamHandler', 'stream': 'ext://sys.stdout'}
+        if request.form.get('handler_file'):
+            handlers['file'] = {'class': 'logging.FileHandler', 'filename': '/var/tmp/opencanary.log'}
+        if request.form.get('handler_file2'):
+            handlers['file2'] = {'class': 'logging.FileHandler', 'filename': '/var/tmp/opencanary-tmp.log'}
+
+        # Email alerts
+        email_enabled = bool(request.form.get('email_enabled'))
+        if email_enabled:
+            mailhost = request.form.get('email_host', '')
+            port = int(request.form.get('email_port', 25))
+            fromaddr = request.form.get('email_from', '')
+            toaddrs = [addr.strip() for addr in request.form.get('email_to', '').split(',') if addr.strip()]
+            subject = request.form.get('email_subject', 'OpenCanary Alert')
+            smtp = {
+                'class': 'logging.handlers.SMTPHandler',
+                'mailhost': [mailhost, port],
+                'fromaddr': fromaddr,
+                'toaddrs': toaddrs,
+                'subject': subject
+            }
+            user = request.form.get('email_user', '')
+            pwd = request.form.get('email_pass', '')
+            if user and pwd:
+                smtp['credentials'] = [user, pwd]
+            if request.form.get('email_tls'):
+                smtp['secure'] = []
+            handlers['SMTP'] = smtp
+
+        cfg['logger.kwargs.handlers'] = handlers
+
+        # Save config
+        path = os.path.join(os.getcwd(), 'opencanary.conf')
+        with open(path, 'w') as f:
+            yaml.dump(cfg, f, default_flow_style=False)
+
+        flash(f'Configuration saved to {path}', 'success')
+        return redirect(url_for('configure'))
+
+    return render_template('config_form.html', simple_services=SIMPLE_SERVICES)
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)

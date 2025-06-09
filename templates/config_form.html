@@ -1,0 +1,418 @@
+<!-- templates/config_form.html -->
+{% extends "layout.html" %}
+{% block body %}
+  <h1 class="mb-4">Configure OpenCanary</h1>
+  <p class="lead">
+    Toggle a service to reveal its settings. Change ports, banners, credentials, skins, or SMTP details,
+    then click <strong>Save Configuration</strong>.
+  </p>
+
+  <form method="post">
+
+    <!-- Node ID -->
+    <div class="mb-4">
+      <label for="node_id" class="form-label">Node ID</label>
+      <input type="text" class="form-control" id="node_id" name="node_id"
+             value="{{ default_config['device.node_id'] }}">
+      <div class="help-text">A unique identifier for this canary instance.</div>
+    </div>
+
+    <!-- Services -->
+    {% for svc, params in simple_services.items() %}
+      <div class="card mb-3" data-svc="{{ svc }}">
+        <div class="card-header service-header" data-bs-toggle="collapse"
+             data-bs-target="#collapse-{{ svc }}">
+          <div class="form-check form-switch">
+            <input class="form-check-input svc-toggle"
+                   type="checkbox"
+                   id="{{ svc }}"
+                   name="{{ svc }}_enabled"
+                   {% if default_config[svc ~ '.enabled'] %}checked{% endif %}>
+            <label class="form-check-label" for="{{ svc }}">
+              <i class="fas fa-server me-2"></i> {{ svc|upper }}
+            </label>
+          </div>
+        </div>
+        <div class="collapse {% if default_config[svc ~ '.enabled'] %}show{% endif %}"
+             id="collapse-{{ svc }}">
+          <div class="card-body">
+            {% for param in params %}
+              {% set key = svc ~ '.' ~ param %}
+              {% set default = default_config[key] %}
+              <div class="mb-3 row">
+                <label class="col-sm-3 col-form-label">
+                  {{ param|replace('_',' ')|title }}
+                </label>
+                <div class="col-sm-9">
+                  {% if param == 'skin' and svc == 'http' %}
+                    <select class="form-select" name="http_skin">
+                      {% for skin in http_skins %}
+                        <option value="{{ skin }}"
+                          {% if skin == default %}selected{% endif %}>
+                          {{ skin }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                  {% elif param == 'skin' and svc == 'httpproxy' %}
+                    <select class="form-select" name="httpproxy_skin">
+                      {% for skin in httpproxy_skins %}
+                        <option value="{{ skin }}"
+                          {% if skin == default %}selected{% endif %}>
+                          {{ skin }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                  {% else %}
+                    <input
+                      type="{{ 'number' if default is number else 'text' }}"
+                      class="form-control"
+                      name="{{ svc }}_{{ param }}"
+                      value="{{ default }}">
+                  {% endif %}
+                  <div class="help-text">
+                    {% if param == 'port' %}
+                      Network port to listen on.
+                    {% elif param in ['banner','version'] %}
+                      The service banner sent to clients.
+                    {% elif param == 'skin' %}
+                      Choose a UI template from installed skins.
+                    {% else %}
+                      Configure {{ param }} for {{ svc }}.
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+
+    <!-- Portscan -->
+    <div class="card mb-3" data-svc="portscan">
+      <div class="card-header service-header"
+           data-bs-toggle="collapse"
+           data-bs-target="#collapse-portscan">
+        <div class="form-check form-switch">
+          <input class="form-check-input svc-toggle"
+                 type="checkbox"
+                 id="portscan"
+                 name="portscan_enabled"
+                 {% if default_config['portscan.enabled'] %}checked{% endif %}>
+          <label class="form-check-label" for="portscan">
+            <i class="fas fa-network-wired me-2"></i> Portscan
+          </label>
+        </div>
+      </div>
+      <div class="collapse {% if default_config['portscan.enabled'] %}show{% endif %}"
+           id="collapse-portscan">
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Logfile</label>
+            <input type="text" class="form-control"
+                   name="portscan_logfile"
+                   value="{{ default_config['portscan.logfile'] }}">
+            <div class="help-text">Kernel log file for SYN scans.</div>
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Synrate</label>
+              <input type="number" class="form-control"
+                     name="portscan_synrate"
+                     value="{{ default_config['portscan.synrate'] }}">
+              <div class="help-text">Packets per second.</div>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Nmap OS Rate</label>
+              <input type="number" class="form-control"
+                     name="portscan_nmaposrate"
+                     value="{{ default_config['portscan.nmaposrate'] }}">
+              <div class="help-text">Rate for OS fingerprinting attempts.</div>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Low Rate</label>
+              <input type="number" class="form-control"
+                     name="portscan_lorate"
+                     value="{{ default_config['portscan.lorate'] }}">
+              <div class="help-text">Rate for low-priority scans.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SMB -->
+    <div class="card mb-3" data-svc="smb">
+      <div class="card-header service-header"
+           data-bs-toggle="collapse"
+           data-bs-target="#collapse-smb">
+        <div class="form-check form-switch">
+          <input class="form-check-input svc-toggle"
+                 type="checkbox"
+                 id="smb"
+                 name="smb_enabled"
+                 {% if default_config['smb.enabled'] %}checked{% endif %}>
+          <label class="form-check-label" for="smb">
+            <i class="fas fa-folder me-2"></i> SMB
+          </label>
+        </div>
+      </div>
+      <div class="collapse {% if default_config['smb.enabled'] %}show{% endif %}"
+           id="collapse-smb">
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Audit File</label>
+            <input type="text" class="form-control"
+                   name="smb_auditfile"
+                   value="{{ default_config['smb.auditfile'] }}">
+            <div class="help-text">Where SMB interactions are logged.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TCP Banner -->
+    <div class="card mb-3" data-svc="tcpbanner">
+      <div class="card-header service-header"
+           data-bs-toggle="collapse"
+           data-bs-target="#collapse-tcpbanner">
+        <div class="form-check form-switch">
+          <input class="form-check-input svc-toggle"
+                 type="checkbox"
+                 id="tcpbanner"
+                 name="tcpbanner_enabled"
+                 {% if default_config['tcpbanner.enabled'] %}checked{% endif %}>
+          <label class="form-check-label" for="tcpbanner">
+            <i class="fas fa-broadcast-tower me-2"></i> TCP Banner
+          </label>
+        </div>
+      </div>
+      <div class="collapse {% if default_config['tcpbanner.enabled'] %}show{% endif %}"
+           id="collapse-tcpbanner">
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Max Number</label>
+            <input type="number" class="form-control"
+                   name="tcpbanner_maxnum"
+                   value="{{ default_config['tcpbanner.maxnum'] }}">
+            <div class="help-text">Maximum concurrent banners.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TCPBanner #1 JSON -->
+    <div class="card mb-3" data-svc="tcpbanner_1">
+      <div class="card-header service-header"
+           data-bs-toggle="collapse"
+           data-bs-target="#collapse-tcpbanner1">
+        <div class="form-check form-switch">
+          <input class="form-check-input svc-toggle"
+                 type="checkbox"
+                 id="tcpbanner_1"
+                 name="tcpbanner_1_enabled"
+                 {% if default_config['tcpbanner_1.enabled'] %}checked{% endif %}>
+          <label class="form-check-label" for="tcpbanner_1">
+            <i class="fas fa-code me-2"></i> TCP Banner #1 Details
+          </label>
+        </div>
+      </div>
+      <div class="collapse {% if default_config['tcpbanner_1.enabled'] %}show{% endif %}"
+           id="collapse-tcpbanner1">
+        <div class="card-body">
+          <label class="form-label">JSON Config</label>
+          <textarea class="form-control"
+                    name="tcpbanner_1_json"
+                    rows="6">{{ default_config.get('tcpbanner_1_json','{}') }}</textarea>
+          <div class="help-text">Full nested config for a second TCP banner listener.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telnet -->
+    <div class="card mb-3" data-svc="telnet">
+      <div class="card-header service-header"
+           data-bs-toggle="collapse"
+           data-bs-target="#collapse-telnet">
+        <div class="form-check form-switch">
+          <input class="form-check-input svc-toggle"
+                 type="checkbox"
+                 id="telnet"
+                 name="telnet_enabled"
+                 {% if default_config['telnet.enabled'] %}checked{% endif %}>
+          <label class="form-check-label" for="telnet">
+            <i class="fas fa-terminal me-2"></i> Telnet
+          </label>
+        </div>
+      </div>
+      <div class="collapse {% if default_config['telnet.enabled'] %}show{% endif %}"
+           id="collapse-telnet">
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Port</label>
+              <input type="number" class="form-control"
+                     name="telnet_port"
+                     value="{{ default_config['telnet.port'] }}">
+              <div class="help-text">Service port.</div>
+            </div>
+            <div class="col-md-9">
+              <label class="form-label">Banner</label>
+              <input type="text" class="form-control"
+                     name="telnet_banner"
+                     value="{{ default_config['telnet.banner'] }}">
+              <div class="help-text">Shown to connecting clients.</div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Honeycreds (JSON List)</label>
+            <textarea class="form-control"
+                      name="telnet_honeycreds"
+                      rows="4">{{ default_config['telnet.honeycreds'] | tojson(indent=2) }}</textarea>
+            <div class="help-text">List of user/password objects.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email Alerts -->
+    <div class="card mb-3" data-svc="email">
+      <div class="card-header service-header"
+           data-bs-toggle="collapse"
+           data-bs-target="#collapse-email">
+        <div class="form-check form-switch">
+          <input class="form-check-input svc-toggle"
+                 type="checkbox"
+                 id="email"
+                 name="email_enabled"
+                 {% if email_enabled %}checked{% endif %}>
+          <label class="form-check-label" for="email">
+            <i class="fas fa-envelope me-2"></i> Email Alerts
+          </label>
+        </div>
+      </div>
+      <div class="collapse {% if email_enabled %}show{% endif %}"
+           id="collapse-email">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">SMTP Host</label>
+              <input type="text" class="form-control"
+                     name="email_host"
+                     value="{{ email_config.host }}">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Port</label>
+              <input type="number" class="form-control"
+                     name="email_port"
+                     value="{{ email_config.port }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">From Address</label>
+              <input type="email" class="form-control"
+                     name="email_from"
+                     value="{{ email_config.fromaddr }}">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">To Addresses (comma-separated)</label>
+              <input type="text" class="form-control"
+                     name="email_to"
+                     value="{{ email_config.toaddrs | join(',') }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Subject</label>
+              <input type="text" class="form-control"
+                     name="email_subject"
+                     value="{{ email_config.subject }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Username</label>
+              <input type="text" class="form-control"
+                     name="email_user"
+                     value="{{ email_config.user }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Password</label>
+              <input type="password" class="form-control" name="email_pass">
+            </div>
+            <div class="col-md-2 form-check align-self-end">
+              <input class="form-check-input svc-toggle"
+                     type="checkbox"
+                     id="email_tls"
+                     name="email_tls"
+                     {% if email_config.tls %}checked{% endif %}>
+              <label class="form-check-label" for="email_tls">Use TLS</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<!-- Log Handlers -->
+<div class="card mb-4" data-svc="handlers">
+  <div class="card-header service-header" data-bs-toggle="collapse" data-bs-target="#collapse-handlers">
+    <strong>Log Handlers</strong>
+  </div>
+  <div class="collapse show" id="collapse-handlers">
+    <div class="card-body">
+      <!-- Console -->
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox"
+               id="handler_console" name="handler_console"
+               {% if default_config['logger.kwargs.handlers.console'] is defined %}checked{% endif %}>
+        <label class="form-check-label" for="handler_console">Console</label>
+      </div>
+
+      <!-- File -->
+      <div class="form-check mb-1">
+        <input class="form-check-input" type="checkbox"
+               id="handler_file" name="handler_file"
+               {% if default_config['logger.kwargs.handlers.file'] is defined %}checked{% endif %}>
+        <label class="form-check-label" for="handler_file">File</label>
+      </div>
+      <div class="mb-3 ps-4">
+        <label class="form-label" for="handler_file_path">File Path</label>
+        <input type="text" class="form-control"
+               id="handler_file_path" name="handler_file_path"
+               value="{{ default_config['logger.kwargs.handlers.file.filename'] or '/var/tmp/opencanary.log' }}">
+        <div class="help-text">Where to write your main log file.</div>
+      </div>
+
+      <!-- File2 -->
+      <div class="form-check mb-1">
+        <input class="form-check-input" type="checkbox"
+               id="handler_file2" name="handler_file2"
+               {% if default_config['logger.kwargs.handlers.file2'] is defined %}checked{% endif %}>
+        <label class="form-check-label" for="handler_file2">File2</label>
+      </div>
+      <div class="mb-3 ps-4">
+        <label class="form-label" for="handler_file2_path">File2 Path</label>
+        <input type="text" class="form-control"
+               id="handler_file2_path" name="handler_file2_path"
+               value="{{ default_config['logger.kwargs.handlers.file2.filename'] or '/var/tmp/opencanary-tmp.log' }}">
+        <div class="help-text">Where to write your secondary log file.</div>
+      </div>
+    <button type="submit" class="btn btn-primary btn-lg">Save Configuration</button>
+  </form>
+
+  <script>
+    function updateHeaders() {
+      document.querySelectorAll('.card[data-svc]').forEach(card => {
+        const svc = card.getAttribute('data-svc');
+        const toggle = document.getElementById(svc);
+        const header = card.querySelector('.service-header');
+        if (toggle && toggle.checked) {
+          header.classList.add('enabled-header');
+        } else {
+          header.classList.remove('enabled-header');
+        }
+      });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      updateHeaders();
+      document.querySelectorAll('.svc-toggle').forEach(input =>
+        input.addEventListener('change', updateHeaders)
+      );
+    });
+  </script>
+{% endblock %}

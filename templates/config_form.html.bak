@@ -1,0 +1,181 @@
+<!-- templates/config_form.html -->
+{% extends "layout.html" %}
+{% block body %}
+  <h1>Configure OpenCanary</h1>
+  <form method="post">
+    <div class="mb-3">
+      <label for="node_id" class="form-label">Node ID</label>
+      <input type="text" class="form-control" id="node_id" name="node_id" value="opencanary-1">
+    </div>
+
+    <!-- Simple services -->
+    {% for svc, attrs in simple_services.items() %}
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="{{ svc }}" name="{{ svc }}_enabled">
+        <label class="form-check-label" for="{{ svc }}">Enable {{ svc|upper }}</label>
+      </div>
+      <div class="row mb-3 ps-4">
+        {% for param, default in attrs.items() %}
+          <div class="col-md-3">
+            <label class="form-label">{{ param|replace('_',' ')|title }}</label>
+            <input
+              type="{{ 'number' if default is number else 'text' }}"
+              class="form-control"
+              name="{{ svc }}_{{ param }}"
+              value="{{ default }}">
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+
+    <!-- Portscan -->
+    <h4>Portscan</h4>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="portscan" name="portscan_enabled">
+      <label class="form-check-label" for="portscan">Enable Portscan</label>
+    </div>
+    <div class="row mb-3 ps-4">
+      <div class="col-md-4">
+        <label class="form-label">Logfile</label>
+        <input type="text" class="form-control" name="portscan_logfile" placeholder="/var/log/kern.log">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Synrate</label>
+        <input type="number" class="form-control" name="portscan_synrate" value="5">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Nmap OS Rate</label>
+        <input type="number" class="form-control" name="portscan_nmaposrate" value="5">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Low Rate</label>
+        <input type="number" class="form-control" name="portscan_lorate" value="3">
+      </div>
+    </div>
+
+    <!-- SMB -->
+    <h4>SMB</h4>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="smb" name="smb_enabled">
+      <label class="form-check-label" for="smb">Enable SMB</label>
+    </div>
+    <div class="mb-3 ps-4">
+      <label class="form-label">Audit File</label>
+      <input type="text" class="form-control" name="smb_auditfile" placeholder="/var/log/samba-audit.log">
+    </div>
+
+    <!-- TCP Banner -->
+    <h4>TCP Banner</h4>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="tcpbanner" name="tcpbanner_enabled">
+      <label class="form-check-label" for="tcpbanner">Enable TCP Banner</label>
+    </div>
+    <div class="mb-3 ps-4">
+      <label class="form-label">Max Number</label>
+      <input type="number" class="form-control" name="tcpbanner_maxnum" value="10">
+    </div>
+
+    <!-- TCPBanner_1 nested JSON -->
+    <h4>TCP Banner #1 Details (JSON)</h4>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="tcpbanner_1" name="tcpbanner_1_enabled">
+      <label class="form-check-label" for="tcpbanner_1">Enable TCP Banner #1</label>
+    </div>
+    <div class="mb-3 ps-4">
+      <label class="form-label">JSON Config</label>
+      <textarea class="form-control" name="tcpbanner_1_json" rows="5">{
+  "port": 8001,
+  "datareceivedbanner": "",
+  "initbanner": "",
+  "alertstring.enabled": false,
+  "alertstring": "",
+  "keep_alive.enabled": false,
+  "keep_alive_secret": "",
+  "keep_alive_probes": 11,
+  "keep_alive_interval": 300,
+  "keep_alive_idle": 300
+}</textarea>
+    </div>
+
+    <!-- Telnet -->
+    <h4>Telnet</h4>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="telnet" name="telnet_enabled">
+      <label class="form-check-label" for="telnet">Enable Telnet</label>
+    </div>
+    <div class="row mb-3 ps-4">
+      <div class="col-md-2">
+        <label class="form-label">Port</label>
+        <input type="number" class="form-control" name="telnet_port" value="23">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Banner</label>
+        <input type="text" class="form-control" name="telnet_banner" value="">
+      </div>
+    </div>
+    <div class="mb-3 ps-4">
+      <label class="form-label">Honeycreds (JSON List)</label>
+      <textarea class="form-control" name="telnet_honeycreds" rows="4">[]</textarea>
+    </div>
+
+    <!-- Email Alerts -->
+    <h4>Email Alerts</h4>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="email" name="email_enabled">
+      <label class="form-check-label" for="email">Enable Email Alerts</label>
+    </div>
+    <div class="row mb-3 ps-4">
+      <div class="col-md-3">
+        <label class="form-label">SMTP Host</label>
+        <input type="text" class="form-control" name="email_host" value="smtp.example.com">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Port</label>
+        <input type="number" class="form-control" name="email_port" value="25">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">From Address</label>
+        <input type="email" class="form-control" name="email_from" placeholder="noreply@domain.com">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">To Addresses (comma-separated)</label>
+        <input type="text" class="form-control" name="email_to" placeholder="alert@domain.com">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Subject</label>
+        <input type="text" class="form-control" name="email_subject" value="OpenCanary Alert">
+      </div>
+    </div>
+    <div class="row ps-4">
+      <div class="col-md-3">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" name="email_user">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" name="email_pass">
+      </div>
+      <div class="col-md-2 form-check align-self-end">
+        <input class="form-check-input" type="checkbox" id="email_tls" name="email_tls">
+        <label class="form-check-label" for="email_tls">Use TLS</label>
+      </div>
+    </div>
+
+    <!-- Log Handlers -->
+    <h4>Log Handlers</h4>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="handler_console" name="handler_console">
+      <label class="form-check-label" for="handler_console">Console</label>
+    </div>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="handler_file" name="handler_file">
+      <label class="form-check-label" for="handler_file">File</label>
+    </div>
+    <div class="form-check mb-4">
+      <input class="form-check-input" type="checkbox" id="handler_file2" name="handler_file2">
+      <label class="form-check-label" for="handler_file2">File2</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-4">Save Configuration</button>
+  </form>
+{% endblock %}
