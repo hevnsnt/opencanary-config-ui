@@ -7,3 +7,6 @@ A Flask application to build and save an `opencanary.conf` via web form, coverin
    ```bash
    python3 -m venv venv
    source venv/bin/activate
+
+
+This is currently running at: https://opencanary-configure-4619d349657a.herokuapp.com/
